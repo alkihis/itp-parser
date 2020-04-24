@@ -28,13 +28,19 @@ class ItpFile {
         this.data = {};
         this.includes = [];
     }
-    read() {
+    /**
+     * Read ITPs that contains multiple molecules.
+     */
+    static readMany(file) {
         var e_1, _a;
         return __awaiter(this, void 0, void 0, function* () {
             const rl = readline_1.default.createInterface({
-                input: typeof this.file === 'string' ? fs_1.default.createReadStream(this.file) : this.file,
+                input: typeof file === 'string' ? fs_1.default.createReadStream(file) : file,
                 crlfDelay: Infinity,
             });
+            let f = new ItpFile("");
+            let initial = true;
+            const files = [f];
             let field = ItpFile.HEADLINE_KEY;
             try {
                 for (var rl_1 = __asyncValues(rl), rl_1_1; rl_1_1 = yield rl_1.next(), !rl_1_1.done;) {
@@ -46,15 +52,25 @@ class ItpFile {
                     const match = trimmed.match(/^\[ *(\w+) *\]$/);
                     if (match) {
                         field = match[1].trim();
+                        // We switch molecule, creating new ITP if not in initial
+                        if (field === "moleculetype") {
+                            if (!initial) {
+                                f = new ItpFile("");
+                                files.push(f);
+                            }
+                            else {
+                                initial = false;
+                            }
+                        }
                         continue;
                     }
                     if (trimmed.startsWith('#include')) {
-                        this.includes.push(trimmed);
+                        f.includes.push(trimmed);
                     }
-                    if (field in this.data)
-                        this.data[field].push(trimmed);
+                    if (field in f.data)
+                        f.data[field].push(trimmed);
                     else
-                        this.data[field] = [trimmed];
+                        f.data[field] = [trimmed];
                 }
             }
             catch (e_1_1) { e_1 = { error: e_1_1 }; }
@@ -66,10 +82,67 @@ class ItpFile {
             }
         });
     }
+    static readFromString(data) {
+        const f = new ItpFile("");
+        let field = ItpFile.HEADLINE_KEY;
+        for (const line of data.split('\n')) {
+            const new_f = f.readLine(line, field);
+            if (new_f) {
+                field = new_f;
+            }
+        }
+        return f;
+    }
+    read() {
+        var e_2, _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            const rl = readline_1.default.createInterface({
+                input: typeof this.file === 'string' ? fs_1.default.createReadStream(this.file) : this.file,
+                crlfDelay: Infinity,
+            });
+            let field = ItpFile.HEADLINE_KEY;
+            try {
+                for (var rl_2 = __asyncValues(rl), rl_2_1; rl_2_1 = yield rl_2.next(), !rl_2_1.done;) {
+                    const line = rl_2_1.value;
+                    const new_f = this.readLine(line, field);
+                    if (new_f) {
+                        field = new_f;
+                    }
+                }
+            }
+            catch (e_2_1) { e_2 = { error: e_2_1 }; }
+            finally {
+                try {
+                    if (rl_2_1 && !rl_2_1.done && (_a = rl_2.return)) yield _a.call(rl_2);
+                }
+                finally { if (e_2) throw e_2.error; }
+            }
+        });
+    }
+    readLine(line, current_field) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            return;
+        }
+        const match = trimmed.match(/^\[ *(\w+) *\]$/);
+        if (match) {
+            return match[1].trim();
+        }
+        if (trimmed.startsWith('#include')) {
+            this.includes.push(trimmed);
+        }
+        if (current_field in this.data)
+            this.data[current_field].push(trimmed);
+        else
+            this.data[current_field] = [trimmed];
+    }
     getField(name) {
         if (name in this.data)
             return this.data[name];
         return [];
+    }
+    setField(name, data) {
+        this.data[name] = data;
     }
     get headlines() {
         return this.getField(ItpFile.HEADLINE_KEY);
@@ -112,6 +185,17 @@ class ItpFile {
             stm.push(null);
         }), 5);
         return stm;
+    }
+    toString() {
+        let str = "";
+        for (const field in this.data) {
+            if (field !== ItpFile.HEADLINE_KEY)
+                str += `[${field}]\n`;
+            for (const line of this.data[field]) {
+                str += line + '\n';
+            }
+        }
+        return str;
     }
     /**
      * Remove data from this ITP. You can't read it after this!

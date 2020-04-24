@@ -63,6 +63,20 @@ export class ItpFile {
     }
   }
 
+  static readFromString(data: string) {
+    const f = new ItpFile("");
+    let field = ItpFile.HEADLINE_KEY;
+
+    for (const line of data.split('\n')) {
+      const new_f = f.readLine(line, field);
+      if (new_f) {
+        field = new_f;
+      }
+    }
+
+    return f;
+  }
+
   async read() {
     const rl = readline.createInterface({
       input: typeof this.file === 'string' ? fs.createReadStream(this.file) : this.file,
@@ -72,27 +86,33 @@ export class ItpFile {
     let field = ItpFile.HEADLINE_KEY;
 
     for await (const line of rl) {
-      const trimmed = line.trim();
-
-      if (!trimmed) {
-        continue;
+      const new_f = this.readLine(line, field);
+      if (new_f) {
+        field = new_f;
       }
-
-      const match = trimmed.match(/^\[ *(\w+) *\]$/);
-      if (match) {
-        field = match[1].trim();
-        continue;
-      }
-
-      if (trimmed.startsWith('#include')) {
-        this.includes.push(trimmed);
-      }
-
-      if (field in this.data) 
-        this.data[field].push(trimmed);
-      else
-        this.data[field] = [trimmed];
     }
+  }
+
+  protected readLine(line: string, current_field: string) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    const match = trimmed.match(/^\[ *(\w+) *\]$/);
+    if (match) {
+      return match[1].trim();
+    }
+
+    if (trimmed.startsWith('#include')) {
+      this.includes.push(trimmed);
+    }
+
+    if (current_field in this.data) 
+      this.data[current_field].push(trimmed);
+    else
+      this.data[current_field] = [trimmed];
   }
 
   getField(name: string) {
