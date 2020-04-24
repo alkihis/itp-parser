@@ -13,6 +13,56 @@ export class ItpFile {
 
   constructor(protected file: string | NodeJS.ReadableStream) {}
 
+  /**
+   * Read ITPs that contains multiple molecules.
+   */
+  static async readMany(file: string | NodeJS.ReadableStream) {
+    const rl = readline.createInterface({
+      input: typeof file === 'string' ? fs.createReadStream(file) : file,
+      crlfDelay: Infinity,
+    });
+
+    let f = new ItpFile("");
+    let initial = true;
+    const files: ItpFile[] = [f];
+
+    let field = ItpFile.HEADLINE_KEY;
+
+    for await (const line of rl) {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        continue;
+      }
+
+      const match = trimmed.match(/^\[ *(\w+) *\]$/);
+      if (match) {
+        field = match[1].trim();
+
+        // We switch molecule, creating new ITP if not in initial
+        if (field === "moleculetype") {
+          if (!initial) {
+            f = new ItpFile("");
+            files.push(f);
+          }
+          else {
+            initial = false;
+          }
+        }
+        continue;
+      }
+
+      if (trimmed.startsWith('#include')) {
+        f.includes.push(trimmed);
+      }
+
+      if (field in f.data) 
+        f.data[field].push(trimmed);
+      else
+        f.data[field] = [trimmed];
+    }
+  }
+
   async read() {
     const rl = readline.createInterface({
       input: typeof this.file === 'string' ? fs.createReadStream(this.file) : this.file,
@@ -49,6 +99,10 @@ export class ItpFile {
     if (name in this.data)
       return this.data[name];
     return [];
+  }
+
+  setField(name: string, data: string[]) {
+    this.data[name] = data;
   }
 
   get headlines() {
@@ -107,6 +161,20 @@ export class ItpFile {
     }, 5);
 
     return stm;
+  }
+
+  toString() {
+    let str = "";
+    for (const field in this.data) {
+      if (field !== ItpFile.HEADLINE_KEY)
+        str += `[${field}]\n`;
+
+      for (const line of this.data[field]) {
+        str += line + '\n';
+      }
+    }
+
+    return str;
   }
 
   /**
