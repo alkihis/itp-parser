@@ -26,7 +26,7 @@ class ItpFile {
     constructor(file) {
         this.file = file;
         this.data = {};
-        this.includes = [];
+        this._includes = [];
     }
     /**
      * Read ITPs that contains multiple molecules.
@@ -38,7 +38,7 @@ class ItpFile {
                 input: typeof file === 'string' ? fs_1.default.createReadStream(file) : file,
                 crlfDelay: Infinity,
             });
-            let f = new ItpFile("");
+            let f = new ItpFile;
             let initial = true;
             const files = [f];
             let field = ItpFile.HEADLINE_KEY;
@@ -80,10 +80,11 @@ class ItpFile {
                 }
                 finally { if (e_1) throw e_1.error; }
             }
+            return files;
         });
     }
     static readFromString(data) {
-        const f = new ItpFile("");
+        const f = new ItpFile;
         let field = ItpFile.HEADLINE_KEY;
         for (const line of data.split('\n')) {
             const new_f = f.readLine(line, field);
@@ -93,11 +94,24 @@ class ItpFile {
         }
         return f;
     }
-    read() {
+    static read(file) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const itp = new ItpFile;
+            yield itp.read(file);
+            return itp;
+        });
+    }
+    read(file) {
         var e_2, _a;
         return __awaiter(this, void 0, void 0, function* () {
+            if (!file) {
+                file = this.file;
+            }
+            if (!file) {
+                throw new Error("You must instanciate ITP file with a stream/path, or specify a stream/path when calling read()");
+            }
             const rl = readline_1.default.createInterface({
-                input: typeof this.file === 'string' ? fs_1.default.createReadStream(this.file) : this.file,
+                input: typeof file === 'string' ? fs_1.default.createReadStream(file) : file,
                 crlfDelay: Infinity,
             });
             let field = ItpFile.HEADLINE_KEY;
@@ -171,6 +185,12 @@ class ItpFile {
     get virtual_sites() {
         return this.getField('virtual_sitesn');
     }
+    get includes() {
+        return this._includes;
+    }
+    get included_files() {
+        return this.includes.map(e => e.split('\"')[1]);
+    }
     asReadStream() {
         const stm = new stream_1.default.Readable;
         setTimeout(() => __awaiter(this, void 0, void 0, function* () {
@@ -202,17 +222,18 @@ class ItpFile {
      */
     dispose() {
         this.data = {};
-        this.includes = [];
+        this._includes = [];
     }
 }
 exports.ItpFile = ItpFile;
 ItpFile.HEADLINE_KEY = '_____begin_____';
 ItpFile.BLANK_REGEX = /\s+/;
 class TopFile extends ItpFile {
-    constructor(top_file, itp_files) {
+    constructor(top_file, itp_files = [], allow_system_moleculetype_only = true) {
         super(top_file);
         this.top_file = top_file;
         this.itp_files = itp_files;
+        this.allow_system_moleculetype_only = allow_system_moleculetype_only;
         this.molecules = {};
     }
     read() {
@@ -226,19 +247,28 @@ class TopFile extends ItpFile {
             for (const line of molecules) {
                 const [name, count] = line.split(TopFile.BLANK_REGEX);
                 molecules_count[name] = Number(count);
+                // register in the case that moleculetype does not exists
+                if (!this.allow_system_moleculetype_only) {
+                    this.molecules[name] = {
+                        // @ts-ignore
+                        itp: null,
+                        count: Number(count),
+                    };
+                }
             }
             for (const file of this.itp_files) {
-                const itp = new ItpFile(file);
-                yield itp.read();
-                const [name, count] = itp.name_and_count;
-                if (!(name in molecules_count)) {
-                    // this molecule is not in the system
-                    continue;
-                }
-                if (!(name in this.molecules))
-                    this.molecules[name] = [];
-                for (let i = 0; i < molecules_count[name]; i++) {
-                    this.molecules[name].push(itp);
+                // Multiple molecules per ITP allowed
+                const itps = yield ItpFile.readMany(file);
+                for (const itp of itps) {
+                    const name = itp.name;
+                    if (!(name in molecules_count)) {
+                        // this molecule is not in the system
+                        continue;
+                    }
+                    this.molecules[name] = {
+                        itp,
+                        count: molecules_count[name],
+                    };
                 }
             }
         });
@@ -254,14 +284,27 @@ class TopFile extends ItpFile {
         return this.getField('system');
     }
     /**
+     * All includes of TOP file, and all of included ITP files. Remove possible duplicates.
+     */
+    get nested_includes() {
+        const includes = new Set();
+        for (const include of this.includes) {
+            includes.add(include);
+        }
+        for (const molecule in this.molecules) {
+            for (const include of this.molecules[molecule].itp.includes) {
+                includes.add(include);
+            }
+        }
+        return [...includes];
+    }
+    /**
      * Remove data from all itps included and top file.
      */
     dispose() {
         super.dispose();
-        for (const itps of Object.values(this.molecules)) {
-            for (const itp of itps) {
-                itp.dispose();
-            }
+        for (const molecule of Object.values(this.molecules)) {
+            molecule.itp.dispose();
         }
     }
 }

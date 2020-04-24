@@ -2,21 +2,25 @@
 
 > A basic ITP/TOP file parser
 
-## Read an ITP with none/single moleculetype field
+## Read single ITP files
+### Read an ITP with none/single moleculetype field
 
 ```ts
 import { ItpFile } from 'itp-parser';
 
 (async () => {
+  // Single line instanciation
+  const file = await ItpFile.read('/path/to/file');
+  // or, with classic constructor
   const file = new ItpFile('/path/to/file');
-  await file.read();
+  await file.read(); // this is needed only with constructor
 
   console.log("This ITP hold moleculetype", file.name);
   // {file} is ready !
 })();
 ```
 
-## Read an ITP with none/single/multiple moleculetype field
+### Read an ITP with none/single/multiple moleculetype field
 
 ```ts
 import { ItpFile } from 'itp-parser';
@@ -32,7 +36,7 @@ import { ItpFile } from 'itp-parser';
 })();
 ```
 
-## Access a field
+### Access a field
 
 Every field is an array of strings (array of lines).
 
@@ -43,7 +47,7 @@ file.getField('{field_name}'); // => string[] (every line contained in the field
 file.getField('atoms');
 ```
 
-### Shortcuts
+#### Shortcuts
 
 Some fields have direct accessor:
 ```ts
@@ -53,7 +57,7 @@ file.bonds; // string[]. Equivalent to file.getField('bonds')
 file.virtual_sites; // string[]. Equivalent to file.getField('virtual_sitesn')
 ```
 
-### Access to data before every field
+#### Access to data before every field
 
 Lines read before encountering a single field declaration are stored in `.headlines`.
 
@@ -61,7 +65,7 @@ Lines read before encountering a single field declaration are stored in `.headli
 file.headlines; // => string[]
 ```
 
-## Write ITP
+### Write ITPs
 
 You can change data of a field with `.setField(name, lines)` and create a read stream of this ITP with `.asReadStream()`.
 
@@ -95,3 +99,32 @@ const file_as_string = file.toString(); // or String(file)
 
 fs.writeFileSync('/path/to/output.itp', file_as_string);
 ```
+
+## Read a full system with a TOP file and ITPs
+
+With the `TopFile` object, you can read a TOP file and associated ITPs.
+
+**You have to manually resolve the included files before reading the TOP file, and specify ITP files in constructor**
+
+```ts
+const top = new TopFile('/path/to/top', ['/path/to/itp1', '/path/to/itp2']);
+await top.read();
+```
+
+### List molecules inside the system
+```ts
+for (const [name, molecule] of top.molecule_list) {
+  console.log("Molecule", molecule.itp.name, ":", molecule.count, "times in the system");
+}
+```
+
+### Get a molecule by name in the system
+```ts
+const molecule = top.molecules["DPPC"];
+
+if (molecule) {
+  console.log("Molecule DPPC is present", molecule.count, "times in the system");
+}
+```
+
+The `TopFile` instance inherits from `ItpFile`, so all methods presented before are accessible with.

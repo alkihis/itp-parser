@@ -6,12 +6,12 @@ export type TopologyField = string[];
 
 export class ItpFile {
   protected data: { [itp_field: string]: TopologyField } = {};
-  protected includes: string[] = [];
+  protected _includes: string[] = [];
 
   protected static HEADLINE_KEY = '_____begin_____';
   static BLANK_REGEX = /\s+/;
 
-  constructor(protected file: string | NodeJS.ReadableStream) {}
+  constructor(protected file?: string | NodeJS.ReadableStream) {}
 
   /**
    * Read ITPs that contains multiple molecules.
@@ -22,7 +22,7 @@ export class ItpFile {
       crlfDelay: Infinity,
     });
 
-    let f = new ItpFile("");
+    let f = new ItpFile;
     let initial = true;
     const files: ItpFile[] = [f];
 
@@ -61,10 +61,12 @@ export class ItpFile {
       else
         f.data[field] = [trimmed];
     }
+
+    return files;
   }
 
   static readFromString(data: string) {
-    const f = new ItpFile("");
+    const f = new ItpFile;
     let field = ItpFile.HEADLINE_KEY;
 
     for (const line of data.split('\n')) {
@@ -77,9 +79,24 @@ export class ItpFile {
     return f;
   }
 
-  async read() {
+  static async read(file: string | NodeJS.ReadableStream) {
+    const itp = new ItpFile;
+    await itp.read(file);
+
+    return itp;
+  }
+
+  async read(file?: string | NodeJS.ReadableStream) {
+    if (!file) {
+      file = this.file;
+    }
+
+    if (!file) {
+      throw new Error("You must instanciate ITP file with a stream/path, or specify a stream/path when calling read()");
+    }
+
     const rl = readline.createInterface({
-      input: typeof this.file === 'string' ? fs.createReadStream(this.file) : this.file,
+      input: typeof file === 'string' ? fs.createReadStream(file) : file,
       crlfDelay: Infinity,
     });
 
@@ -162,6 +179,14 @@ export class ItpFile {
     return this.getField('virtual_sitesn');
   }
 
+  get includes() {
+    return this._includes;
+  }
+
+  get included_files() {
+    return this.includes.map(e => e.split('\"')[1]);
+  }
+
   asReadStream() {
     const stm = new stream.Readable;
 
@@ -202,16 +227,19 @@ export class ItpFile {
    */
   dispose() {
     this.data = {};
-    this.includes = [];
+    this._includes = [];
   }
 }
 
+export type MoleculeDefinition = { itp: ItpFile, count: number, };
+
 export class TopFile extends ItpFile {
-  protected molecules: { [name: string]: ItpFile[] } = {};
+  public readonly molecules: { [name: string]: MoleculeDefinition } = {};
 
   constructor(
     protected top_file: string | NodeJS.ReadableStream,
-    protected itp_files: (string | NodeJS.ReadableStream)[],
+    protected itp_files: (string | NodeJS.ReadableStream)[] = [],
+    public allow_system_moleculetype_only = true,
   ) {
     super(top_file);
   }
@@ -225,24 +253,33 @@ export class TopFile extends ItpFile {
     for (const line of molecules) {
       const [name, count] = line.split(TopFile.BLANK_REGEX);
       molecules_count[name] = Number(count);
+
+      // register in the case that moleculetype does not exists
+      if (!this.allow_system_moleculetype_only) {
+        this.molecules[name] = { 
+          // @ts-ignore
+          itp: null, 
+          count: Number(count),
+        };
+      }
     }
 
     for (const file of this.itp_files) {
-      const itp = new ItpFile(file);
-      await itp.read();
-
-      const [name, count] = itp.name_and_count;
-
-      if (!(name in molecules_count)) {
-        // this molecule is not in the system
-        continue;
-      }
-
-      if (!(name in this.molecules))
-        this.molecules[name] = [];
-
-      for (let i = 0; i < molecules_count[name]; i++) {
-        this.molecules[name].push(itp);
+      // Multiple molecules per ITP allowed
+      const itps = await ItpFile.readMany(file);
+      
+      for (const itp of itps) {
+        const name = itp.name;
+  
+        if (!(name in molecules_count)) {
+          // this molecule is not in the system
+          continue;
+        }
+  
+        this.molecules[name] = { 
+          itp, 
+          count: molecules_count[name],
+        };
       }
     }
   }
@@ -260,15 +297,32 @@ export class TopFile extends ItpFile {
   }
 
   /**
+   * All includes of TOP file, and all of included ITP files. Remove possible duplicates.
+   */
+  get nested_includes() {
+    const includes = new Set<string>();
+
+    for (const include of this.includes) {
+      includes.add(include);
+    }
+
+    for (const molecule in this.molecules) {
+      for (const include of this.molecules[molecule].itp.includes) {
+        includes.add(include);
+      }
+    }
+
+    return [...includes];
+  }
+
+  /**
    * Remove data from all itps included and top file.
    */
   dispose() {
     super.dispose();
     
-    for (const itps of Object.values(this.molecules)) {
-      for (const itp of itps) {
-        itp.dispose();
-      }
+    for (const molecule of Object.values(this.molecules)) {
+      molecule.itp.dispose();
     }
   }
 }
