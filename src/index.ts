@@ -8,7 +8,7 @@ export class ItpFile {
   protected data: { [itp_field: string]: TopologyField } = {};
   protected _includes: string[] = [];
 
-  protected static HEADLINE_KEY = '_____begin_____';
+  static HEADLINE_KEY = '_____begin_____';
   static BLANK_REGEX = /\s+/;
 
   constructor(protected file?: string | NodeJS.ReadableStream) {}
@@ -282,6 +282,51 @@ export class TopFile extends ItpFile {
         };
       }
     }
+  }
+
+  static readFromString(data: string, itp_data: string[] = []) {
+    const f = new TopFile("");
+    let field = ItpFile.HEADLINE_KEY;
+
+    for (const line of data.split('\n')) {
+      const new_f = f.readLine(line, field);
+      if (new_f) {
+        field = new_f;
+      }
+    }
+
+    const molecules = f.getField('molecules');
+    const molecules_count: { [name: string]: number } = {};
+
+    for (const line of molecules) {
+      const [name, count] = line.split(TopFile.BLANK_REGEX);
+      molecules_count[name] = Number(count);
+
+      // register in the case that moleculetype does not exists
+      f.molecules[name] = { 
+        // @ts-ignore
+        itp: null, 
+        count: Number(count),
+      };
+    }
+
+    for (const file of itp_data) {
+      // Multiple molecules per ITP allowed
+      const itp = ItpFile.readFromString(file);
+      const name = itp.name;
+  
+      if (!(name in molecules_count)) {
+        // this molecule is not in the system
+        continue;
+      }
+      
+      f.molecules[name] = { 
+        itp, 
+        count: molecules_count[name],
+      };
+    }
+
+    return f;
   }
 
   getMolecule(name: string) {

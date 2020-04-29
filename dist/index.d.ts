@@ -7,7 +7,7 @@ export declare class ItpFile {
         [itp_field: string]: TopologyField;
     };
     protected _includes: string[];
-    protected static HEADLINE_KEY: string;
+    static HEADLINE_KEY: string;
     static BLANK_REGEX: RegExp;
     constructor(file?: string | NodeJS.ReadableStream | undefined);
     /**
@@ -49,6 +49,7 @@ export declare class TopFile extends ItpFile {
     };
     constructor(top_file: string | NodeJS.ReadableStream, itp_files?: (string | NodeJS.ReadableStream)[], allow_system_moleculetype_only?: boolean);
     read(): Promise<void>;
+    static readFromString(data: string, itp_data?: string[]): TopFile;
     getMolecule(name: string): MoleculeDefinition;
     get molecule_list(): [string, MoleculeDefinition][];
     get system(): TopologyField;

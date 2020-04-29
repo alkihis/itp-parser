@@ -273,6 +273,42 @@ class TopFile extends ItpFile {
             }
         });
     }
+    static readFromString(data, itp_data = []) {
+        const f = new TopFile("");
+        let field = ItpFile.HEADLINE_KEY;
+        for (const line of data.split('\n')) {
+            const new_f = f.readLine(line, field);
+            if (new_f) {
+                field = new_f;
+            }
+        }
+        const molecules = f.getField('molecules');
+        const molecules_count = {};
+        for (const line of molecules) {
+            const [name, count] = line.split(TopFile.BLANK_REGEX);
+            molecules_count[name] = Number(count);
+            // register in the case that moleculetype does not exists
+            f.molecules[name] = {
+                // @ts-ignore
+                itp: null,
+                count: Number(count),
+            };
+        }
+        for (const file of itp_data) {
+            // Multiple molecules per ITP allowed
+            const itp = ItpFile.readFromString(file);
+            const name = itp.name;
+            if (!(name in molecules_count)) {
+                // this molecule is not in the system
+                continue;
+            }
+            f.molecules[name] = {
+                itp,
+                count: molecules_count[name],
+            };
+        }
+        return f;
+    }
     getMolecule(name) {
         var _a;
         return (_a = this.molecules[name]) !== null && _a !== void 0 ? _a : [];
