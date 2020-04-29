@@ -247,37 +247,47 @@ export class TopFile extends ItpFile {
   async read() {
     await super.read();
 
-    const molecules = this.getField('molecules');
-    const molecules_count: { [name: string]: number } = {};
-
-    for (const line of molecules) {
-      const [name, count] = line.split(TopFile.BLANK_REGEX);
-      if (name in molecules_count)
-        molecules_count[name] += Number(count)
-      else
-        molecules_count[name] = Number(count);
-
-      // register in the case that moleculetype does not exists
-      // @ts-ignore
-      this.molecules.push([name, { itp: null, count: Number(count) }]);
-    }
+    const { molecules_count } = TopFile.initItpData(this);
 
     for (const file of this.itp_files) {
       // Multiple molecules per ITP allowed
       const itps = await ItpFile.readMany(file);
       
       for (const itp of itps) {
-        const name = itp.name;
-  
-        if (!(name in molecules_count)) {
-          // this molecule is not in the system
-          continue;
-        }
-
-        for (const mol of this.molecules.filter(e => e[0] === name)) {
-          mol[1].itp = itp; 
-        }
+        TopFile.registerItp(this, itp, molecules_count);
       }
+    }
+  }
+
+  protected static initItpData(instance: TopFile) {
+    const molecules = instance.getField('molecules');
+    const molecules_count: { [name: string]: number } = {};
+
+    for (const line of molecules) {
+      const [name, count] = line.split(TopFile.BLANK_REGEX);
+      molecules_count[name] = Number(count);
+
+      // register in the case that moleculetype does not exists
+      instance.molecules.push([
+        name, 
+        // @ts-ignore
+        { itp: null, count: Number(count) }
+      ]);
+    }
+
+    return { instance, molecules_count };
+  }
+
+  protected static registerItp(instance: TopFile, itp: ItpFile, molecules_count: { [name: string]: number }) {
+    const name = itp.name;
+    
+    if (!(name in molecules_count)) {
+      // this molecule is not in the system
+      return;
+    }
+    
+    for (const mol of instance.molecules.filter(e => e[0] === name)) {
+      mol[1].itp = itp; 
     }
   }
 
@@ -292,31 +302,12 @@ export class TopFile extends ItpFile {
       }
     }
 
-    const molecules = f.getField('molecules');
-    const molecules_count: { [name: string]: number } = {};
-
-    for (const line of molecules) {
-      const [name, count] = line.split(TopFile.BLANK_REGEX);
-      molecules_count[name] = Number(count);
-
-      // register in the case that moleculetype does not exists
-      // @ts-ignore
-      f.molecules.push([name, { itp: null, count: Number(count) }]);
-    }
+    const { molecules_count } = this.initItpData(f);
 
     for (const file of itp_data) {
       // Multiple molecules per ITP allowed
       const itp = ItpFile.readFromString(file);
-      const name = itp.name;
-  
-      if (!(name in molecules_count)) {
-        // this molecule is not in the system
-        continue;
-      }
-      
-      for (const mol of f.molecules.filter(e => e[0] === name)) {
-        mol[1].itp = itp; 
-      }
+      this.registerItp(f, itp, molecules_count);
     }
 
     return f;

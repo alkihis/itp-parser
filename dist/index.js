@@ -242,33 +242,40 @@ class TopFile extends ItpFile {
         });
         return __awaiter(this, void 0, void 0, function* () {
             yield _super.read.call(this);
-            const molecules = this.getField('molecules');
-            const molecules_count = {};
-            for (const line of molecules) {
-                const [name, count] = line.split(TopFile.BLANK_REGEX);
-                if (name in molecules_count)
-                    molecules_count[name] += Number(count);
-                else
-                    molecules_count[name] = Number(count);
-                // register in the case that moleculetype does not exists
-                // @ts-ignore
-                this.molecules.push([name, { itp: null, count: Number(count) }]);
-            }
+            const { molecules_count } = TopFile.initItpData(this);
             for (const file of this.itp_files) {
                 // Multiple molecules per ITP allowed
                 const itps = yield ItpFile.readMany(file);
                 for (const itp of itps) {
-                    const name = itp.name;
-                    if (!(name in molecules_count)) {
-                        // this molecule is not in the system
-                        continue;
-                    }
-                    for (const mol of this.molecules.filter(e => e[0] === name)) {
-                        mol[1].itp = itp;
-                    }
+                    TopFile.registerItp(this, itp, molecules_count);
                 }
             }
         });
+    }
+    static initItpData(instance) {
+        const molecules = instance.getField('molecules');
+        const molecules_count = {};
+        for (const line of molecules) {
+            const [name, count] = line.split(TopFile.BLANK_REGEX);
+            molecules_count[name] = Number(count);
+            // register in the case that moleculetype does not exists
+            instance.molecules.push([
+                name,
+                // @ts-ignore
+                { itp: null, count: Number(count) }
+            ]);
+        }
+        return { instance, molecules_count };
+    }
+    static registerItp(instance, itp, molecules_count) {
+        const name = itp.name;
+        if (!(name in molecules_count)) {
+            // this molecule is not in the system
+            return;
+        }
+        for (const mol of instance.molecules.filter(e => e[0] === name)) {
+            mol[1].itp = itp;
+        }
     }
     static readFromString(data, itp_data = []) {
         const f = new TopFile("");
@@ -279,26 +286,11 @@ class TopFile extends ItpFile {
                 field = new_f;
             }
         }
-        const molecules = f.getField('molecules');
-        const molecules_count = {};
-        for (const line of molecules) {
-            const [name, count] = line.split(TopFile.BLANK_REGEX);
-            molecules_count[name] = Number(count);
-            // register in the case that moleculetype does not exists
-            // @ts-ignore
-            f.molecules.push([name, { itp: null, count: Number(count) }]);
-        }
+        const { molecules_count } = this.initItpData(f);
         for (const file of itp_data) {
             // Multiple molecules per ITP allowed
             const itp = ItpFile.readFromString(file);
-            const name = itp.name;
-            if (!(name in molecules_count)) {
-                // this molecule is not in the system
-                continue;
-            }
-            for (const mol of f.molecules.filter(e => e[0] === name)) {
-                mol[1].itp = itp;
-            }
+            this.registerItp(f, itp, molecules_count);
         }
         return f;
     }
