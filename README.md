@@ -7,7 +7,9 @@
 
 ```ts
 import { ItpFile } from 'itp-parser';
+import fs from 'fs';
 
+// Read asynchrounously
 (async () => {
   // Single line instanciation
   const file = await ItpFile.read('/path/to/file');
@@ -18,13 +20,20 @@ import { ItpFile } from 'itp-parser';
   console.log("This ITP hold moleculetype", file.name);
   // {file} is ready !
 })();
+
+// Read synchronously
+const file = ItpFile.readFromString(fs.readFileSync('/path/to/file.itp', 'utf-8'));
+// {file} is ready
 ```
 
 ### Read an ITP with none/single/multiple moleculetype field
 
+Multiple moleculetype parsing does not have synchronous counterpart.
+
 ```ts
 import { ItpFile } from 'itp-parser';
 
+// Asynchrounously
 (async () => {
   const itps = await ItpFile.readMany('/path/to/file');
 
@@ -104,26 +113,82 @@ fs.writeFileSync('/path/to/output.itp', file_as_string);
 
 With the `TopFile` object, you can read a TOP file and associated ITPs.
 
-**You have to manually resolve the included files before reading the TOP file, and specify ITP files in constructor**
+In order to link `moleculetype` described in `molecules` field of TOP with ITP data, you either:
+
+- Have to manually resolve the included files before reading the TOP file, and specify ITP files in constructor
+- Sideload manually the ITPs
 
 ```ts
+// Asynchronously
 const top = new TopFile('/path/to/top', ['/path/to/itp1', '/path/to/itp2']);
 await top.read();
+
+// Synchronously
+const top = TopFile.readFromString(
+  fs.readFileSync('/path/to/top', 'utf-8'), 
+  [
+    fs.readFileSync('/path/to/itp1', 'utf-8'),
+    fs.readFileSync('/path/to/itp2', 'utf-8'),
+  ]
+);
+
+// {top} is ready !
 ```
 
 ### List molecules inside the system
 ```ts
-for (const [name, molecule] of top.molecule_list) {
+for (const [name, molecule] of top.molecules) {
   console.log("Molecule", molecule.itp.name, ":", molecule.count, "times in the system");
 }
 ```
 
-### Get a molecule by name in the system
-```ts
-const molecule = top.molecules["DPPC"];
+### Sideload ITPs
 
-if (molecule) {
-  console.log("Molecule DPPC is present", molecule.count, "times in the system");
+When you know which `moleculetype` is present in the system, you can load inside the `TopFile` instance the ITPs you want.
+
+```ts
+// Asynchronously
+await top.sideloadItp('/path/to/itp');
+
+// Synchronously
+top.sideloadItpFromString(fs.readFileSync('/path/to/itp', 'utf-8'));
+```
+
+For example, if your system contain `DPPC`:
+
+```ts
+// If your file contains multiple moleculetype, they're all parsed in async mode
+await top.sideloadItp('lipids.itp');
+
+top.molecules.filter(e => e.name === "DPPC")[0].itp; // => ItpFile
+```
+
+### Get a molecule by name in the system
+
+A molecule can be described multiple times in a system, for example:
+```itp
+[ molecules ]
+molecule_0  2
+molecule_1  3
+molecule_0  1
+```
+is a valid format for GROMACS. 
+For this reason, a molecule type can be present multiple time in the `top.molecules` array.
+
+`top.molecules` is an array of tuples `[string, MoleculeDefinition]`.
+
+The first `string` is the molecule type, 
+and the `MoleculeDefinition` is an object containing two fields:
+- `itp`: Contains the related `ItpFile` for this molecule type 
+- `count`: Associated count of the molecule type, number on the right in example
+
+In order to access `ItpFile` instance, you must provide the ITP for the given `moleculetype` in the constructor.
+
+```ts
+const molecules = top.molecules.filter(e => e[0] === "DPPC");
+
+if (molecules) {
+  console.log("Molecule DPPC is present", molecules.reduce((acc, cur) => acc + cur[1].count, 0), "times in the system");
 }
 ```
 

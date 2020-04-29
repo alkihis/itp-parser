@@ -47,15 +47,10 @@ export declare class TopFile extends ItpFile {
     readonly molecules: [string, MoleculeDefinition][];
     constructor(top_file: string | NodeJS.ReadableStream, itp_files?: (string | NodeJS.ReadableStream)[], allow_system_moleculetype_only?: boolean);
     read(): Promise<void>;
-    protected static initItpData(instance: TopFile): {
-        instance: TopFile;
-        molecules_count: {
-            [name: string]: number;
-        };
-    };
-    protected static registerItp(instance: TopFile, itp: ItpFile, molecules_count: {
-        [name: string]: number;
-    }): void;
+    sideloadItp(itp: string | NodeJS.ReadableStream): Promise<void>;
+    sideloadItpFromString(itp: string): void;
+    protected static initItpData(instance: TopFile): TopFile;
+    protected static registerItp(instance: TopFile, itp: ItpFile): void;
     static readFromString(data: string, itp_data?: string[]): TopFile;
     getMolecule(name: string): MoleculeDefinition[];
     get molecule_list(): MoleculeDefinition[];

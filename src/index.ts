@@ -247,25 +247,35 @@ export class TopFile extends ItpFile {
   async read() {
     await super.read();
 
-    const { molecules_count } = TopFile.initItpData(this);
+    TopFile.initItpData(this);
 
     for (const file of this.itp_files) {
       // Multiple molecules per ITP allowed
       const itps = await ItpFile.readMany(file);
       
       for (const itp of itps) {
-        TopFile.registerItp(this, itp, molecules_count);
+        TopFile.registerItp(this, itp);
       }
     }
   }
 
+  async sideloadItp(itp: string | NodeJS.ReadableStream) {
+    const itps_instance = await ItpFile.readMany(itp);
+
+    for (const itp_instance of itps_instance)
+      TopFile.registerItp(this, itp_instance);
+  }
+
+  sideloadItpFromString(itp: string) {
+    const itp_instance = ItpFile.readFromString(itp);
+    TopFile.registerItp(this, itp_instance);
+  }
+
   protected static initItpData(instance: TopFile) {
     const molecules = instance.getField('molecules');
-    const molecules_count: { [name: string]: number } = {};
 
     for (const line of molecules) {
       const [name, count] = line.split(TopFile.BLANK_REGEX);
-      molecules_count[name] = Number(count);
 
       // register in the case that moleculetype does not exists
       instance.molecules.push([
@@ -275,16 +285,11 @@ export class TopFile extends ItpFile {
       ]);
     }
 
-    return { instance, molecules_count };
+    return instance;
   }
 
-  protected static registerItp(instance: TopFile, itp: ItpFile, molecules_count: { [name: string]: number }) {
+  protected static registerItp(instance: TopFile, itp: ItpFile) {
     const name = itp.name;
-    
-    if (!(name in molecules_count)) {
-      // this molecule is not in the system
-      return;
-    }
     
     for (const mol of instance.molecules.filter(e => e[0] === name)) {
       mol[1].itp = itp; 
@@ -302,12 +307,12 @@ export class TopFile extends ItpFile {
       }
     }
 
-    const { molecules_count } = this.initItpData(f);
+    this.initItpData(f);
 
     for (const file of itp_data) {
       // Multiple molecules per ITP allowed
       const itp = ItpFile.readFromString(file);
-      this.registerItp(f, itp, molecules_count);
+      this.registerItp(f, itp);
     }
 
     return f;

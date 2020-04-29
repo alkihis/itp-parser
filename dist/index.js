@@ -242,22 +242,31 @@ class TopFile extends ItpFile {
         });
         return __awaiter(this, void 0, void 0, function* () {
             yield _super.read.call(this);
-            const { molecules_count } = TopFile.initItpData(this);
+            TopFile.initItpData(this);
             for (const file of this.itp_files) {
                 // Multiple molecules per ITP allowed
                 const itps = yield ItpFile.readMany(file);
                 for (const itp of itps) {
-                    TopFile.registerItp(this, itp, molecules_count);
+                    TopFile.registerItp(this, itp);
                 }
             }
         });
     }
+    sideloadItp(itp) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const itps_instance = yield ItpFile.readMany(itp);
+            for (const itp_instance of itps_instance)
+                TopFile.registerItp(this, itp_instance);
+        });
+    }
+    sideloadItpFromString(itp) {
+        const itp_instance = ItpFile.readFromString(itp);
+        TopFile.registerItp(this, itp_instance);
+    }
     static initItpData(instance) {
         const molecules = instance.getField('molecules');
-        const molecules_count = {};
         for (const line of molecules) {
             const [name, count] = line.split(TopFile.BLANK_REGEX);
-            molecules_count[name] = Number(count);
             // register in the case that moleculetype does not exists
             instance.molecules.push([
                 name,
@@ -265,14 +274,10 @@ class TopFile extends ItpFile {
                 { itp: null, count: Number(count) }
             ]);
         }
-        return { instance, molecules_count };
+        return instance;
     }
-    static registerItp(instance, itp, molecules_count) {
+    static registerItp(instance, itp) {
         const name = itp.name;
-        if (!(name in molecules_count)) {
-            // this molecule is not in the system
-            return;
-        }
         for (const mol of instance.molecules.filter(e => e[0] === name)) {
             mol[1].itp = itp;
         }
@@ -286,11 +291,11 @@ class TopFile extends ItpFile {
                 field = new_f;
             }
         }
-        const { molecules_count } = this.initItpData(f);
+        this.initItpData(f);
         for (const file of itp_data) {
             // Multiple molecules per ITP allowed
             const itp = ItpFile.readFromString(file);
-            this.registerItp(f, itp, molecules_count);
+            this.registerItp(f, itp);
         }
         return f;
     }
