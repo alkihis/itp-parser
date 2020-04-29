@@ -2,8 +2,33 @@
 
 > A basic ITP/TOP file parser
 
-## Read single ITP files
+## Getting started
+
+Install the package using npm.
+```bash
+npm i itp-parser
+```
+
+This package exports two objects: `ItpFile` and `TopFile`, whose have obvious usages.
+Default export is `ItpFile`.
+
+```ts
+// ECMA Modules
+import ItpFile, { TopFile } from 'itp-parser';
+// or
+import { ItpFile, TopFile } from 'itp-parser';
+
+// CommonJS modules
+const { ItpFile, TopFile } = require('itp-parser');
+```
+
+## Usage
+
 ### Read an ITP with none/single moleculetype field
+
+The following sections will talk about the `ItpFile` object.
+
+---
 
 ```ts
 import { ItpFile } from 'itp-parser';
@@ -109,7 +134,11 @@ const file_as_string = file.toString(); // or String(file)
 fs.writeFileSync('/path/to/output.itp', file_as_string);
 ```
 
-## Read a full system with a TOP file and ITPs
+### Read a full system with a TOP file and ITPs
+
+The following sections will talk about the `TopFile` object.
+
+---
 
 With the `TopFile` object, you can read a TOP file and associated ITPs.
 
@@ -135,14 +164,14 @@ const top = TopFile.readFromString(
 // {top} is ready !
 ```
 
-### List molecules inside the system
+### List molecules of a system
 ```ts
 for (const [name, molecule] of top.molecules) {
   console.log("Molecule", molecule.itp.name, ":", molecule.count, "times in the system");
 }
 ```
 
-### Sideload ITPs
+### Sideload ITPs in a system
 
 When you know which `moleculetype` is present in the system, you can load inside the `TopFile` instance the ITPs you want.
 
@@ -163,7 +192,7 @@ await top.sideloadItp('lipids.itp');
 top.molecules.filter(e => e.name === "DPPC")[0].itp; // => ItpFile
 ```
 
-### Get a molecule by name in the system
+### Get a molecule by name in a system
 
 A molecule can be described multiple times in a system, for example:
 ```itp
@@ -193,3 +222,16 @@ if (molecules) {
 ```
 
 The `TopFile` instance inherits from `ItpFile`, so all methods presented before are accessible with.
+
+## Self-installation
+
+This module is written in TypeScript.
+In order to use it, you must have the TypeScript compiler installed.
+
+```bash
+git clone https://github.com/alkihis/itp-parser.git
+cd itp-parser
+npm i
+tsc
+# Compiled JS entrypoint is in dist/index.js
+```
