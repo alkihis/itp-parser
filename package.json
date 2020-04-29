@@ -11,5 +11,10 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^13.13.2"
+  },
+  "homepage": "https://github.com/alkihis/itp-parser",
+  "repository": {
+    "url": "https://github.com/alkihis/itp-parser",
+    "type": "git"
   }
 }
