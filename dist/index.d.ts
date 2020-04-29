@@ -44,14 +44,12 @@ export declare class TopFile extends ItpFile {
     protected top_file: string | NodeJS.ReadableStream;
     protected itp_files: (string | NodeJS.ReadableStream)[];
     allow_system_moleculetype_only: boolean;
-    readonly molecules: {
-        [name: string]: MoleculeDefinition;
-    };
+    readonly molecules: [string, MoleculeDefinition][];
     constructor(top_file: string | NodeJS.ReadableStream, itp_files?: (string | NodeJS.ReadableStream)[], allow_system_moleculetype_only?: boolean);
     read(): Promise<void>;
     static readFromString(data: string, itp_data?: string[]): TopFile;
-    getMolecule(name: string): MoleculeDefinition;
-    get molecule_list(): [string, MoleculeDefinition][];
+    getMolecule(name: string): MoleculeDefinition[];
+    get molecule_list(): MoleculeDefinition[];
     get system(): TopologyField;
     /**
      * All includes of TOP file, and all of included ITP files. Remove possible duplicates.

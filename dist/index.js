@@ -234,7 +234,7 @@ class TopFile extends ItpFile {
         this.top_file = top_file;
         this.itp_files = itp_files;
         this.allow_system_moleculetype_only = allow_system_moleculetype_only;
-        this.molecules = {};
+        this.molecules = [];
     }
     read() {
         const _super = Object.create(null, {
@@ -251,22 +251,8 @@ class TopFile extends ItpFile {
                 else
                     molecules_count[name] = Number(count);
                 // register in the case that moleculetype does not exists
-                if (!this.allow_system_moleculetype_only) {
-                    if (name in this.molecules) {
-                        this.molecules[name] = {
-                            // @ts-ignore
-                            itp: null,
-                            count: Number(count) + this.molecules[name].count,
-                        };
-                    }
-                    else {
-                        this.molecules[name] = {
-                            // @ts-ignore
-                            itp: null,
-                            count: Number(count),
-                        };
-                    }
-                }
+                // @ts-ignore
+                this.molecules.push([name, { itp: null, count: Number(count) }]);
             }
             for (const file of this.itp_files) {
                 // Multiple molecules per ITP allowed
@@ -277,10 +263,9 @@ class TopFile extends ItpFile {
                         // this molecule is not in the system
                         continue;
                     }
-                    this.molecules[name] = {
-                        itp,
-                        count: molecules_count[name],
-                    };
+                    for (const mol of this.molecules.filter(e => e[0] === name)) {
+                        mol[1].itp = itp;
+                    }
                 }
             }
         });
@@ -300,11 +285,8 @@ class TopFile extends ItpFile {
             const [name, count] = line.split(TopFile.BLANK_REGEX);
             molecules_count[name] = Number(count);
             // register in the case that moleculetype does not exists
-            f.molecules[name] = {
-                // @ts-ignore
-                itp: null,
-                count: Number(count),
-            };
+            // @ts-ignore
+            f.molecules.push([name, { itp: null, count: Number(count) }]);
         }
         for (const file of itp_data) {
             // Multiple molecules per ITP allowed
@@ -314,19 +296,17 @@ class TopFile extends ItpFile {
                 // this molecule is not in the system
                 continue;
             }
-            f.molecules[name] = {
-                itp,
-                count: molecules_count[name],
-            };
+            for (const mol of f.molecules.filter(e => e[0] === name)) {
+                mol[1].itp = itp;
+            }
         }
         return f;
     }
     getMolecule(name) {
-        var _a;
-        return (_a = this.molecules[name]) !== null && _a !== void 0 ? _a : [];
+        return this.molecules.filter(e => e[0] === name).map(e => e[1]);
     }
     get molecule_list() {
-        return Object.entries(this.molecules);
+        return this.molecules.map(e => e[1]);
     }
     get system() {
         return this.getField('system');
@@ -339,8 +319,8 @@ class TopFile extends ItpFile {
         for (const include of this.includes) {
             includes.add(include);
         }
-        for (const molecule in this.molecules) {
-            for (const include of this.molecules[molecule].itp.includes) {
+        for (const [, molecule] of this.molecules) {
+            for (const include of molecule.itp.includes) {
                 includes.add(include);
             }
         }
@@ -351,7 +331,7 @@ class TopFile extends ItpFile {
      */
     dispose() {
         super.dispose();
-        for (const molecule of Object.values(this.molecules)) {
+        for (const [, molecule] of this.molecules) {
             molecule.itp.dispose();
         }
     }

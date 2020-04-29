@@ -234,7 +234,7 @@ export class ItpFile {
 export type MoleculeDefinition = { itp: ItpFile, count: number, };
 
 export class TopFile extends ItpFile {
-  public readonly molecules: { [name: string]: MoleculeDefinition } = {};
+  public readonly molecules: [string, MoleculeDefinition][] = [];
 
   constructor(
     protected top_file: string | NodeJS.ReadableStream,
@@ -258,22 +258,8 @@ export class TopFile extends ItpFile {
         molecules_count[name] = Number(count);
 
       // register in the case that moleculetype does not exists
-      if (!this.allow_system_moleculetype_only) {
-        if (name in this.molecules) {
-          this.molecules[name] = { 
-            // @ts-ignore
-            itp: null, 
-            count: Number(count) + this.molecules[name].count,
-          };
-        }
-        else {
-          this.molecules[name] = { 
-            // @ts-ignore
-            itp: null, 
-            count: Number(count),
-          };
-        }
-      }
+      // @ts-ignore
+      this.molecules.push([name, { itp: null, count: Number(count) }]);
     }
 
     for (const file of this.itp_files) {
@@ -287,11 +273,10 @@ export class TopFile extends ItpFile {
           // this molecule is not in the system
           continue;
         }
-  
-        this.molecules[name] = { 
-          itp, 
-          count: molecules_count[name],
-        };
+
+        for (const mol of this.molecules.filter(e => e[0] === name)) {
+          mol[1].itp = itp; 
+        }
       }
     }
   }
@@ -315,11 +300,8 @@ export class TopFile extends ItpFile {
       molecules_count[name] = Number(count);
 
       // register in the case that moleculetype does not exists
-      f.molecules[name] = { 
-        // @ts-ignore
-        itp: null, 
-        count: Number(count),
-      };
+      // @ts-ignore
+      f.molecules.push([name, { itp: null, count: Number(count) }]);
     }
 
     for (const file of itp_data) {
@@ -332,21 +314,20 @@ export class TopFile extends ItpFile {
         continue;
       }
       
-      f.molecules[name] = { 
-        itp, 
-        count: molecules_count[name],
-      };
+      for (const mol of f.molecules.filter(e => e[0] === name)) {
+        mol[1].itp = itp; 
+      }
     }
 
     return f;
   }
 
   getMolecule(name: string) {
-    return this.molecules[name] ?? [];
+    return this.molecules.filter(e => e[0] === name).map(e => e[1]);
   }
 
   get molecule_list() {
-    return Object.entries(this.molecules);
+    return this.molecules.map(e => e[1]);
   }
 
   get system() {
@@ -363,8 +344,8 @@ export class TopFile extends ItpFile {
       includes.add(include);
     }
 
-    for (const molecule in this.molecules) {
-      for (const include of this.molecules[molecule].itp.includes) {
+    for (const [, molecule] of this.molecules) {
+      for (const include of molecule.itp.includes) {
         includes.add(include);
       }
     }
@@ -378,7 +359,7 @@ export class TopFile extends ItpFile {
   dispose() {
     super.dispose();
     
-    for (const molecule of Object.values(this.molecules)) {
+    for (const [, molecule] of this.molecules) {
       molecule.itp.dispose();
     }
   }
