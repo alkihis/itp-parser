@@ -252,15 +252,27 @@ export class TopFile extends ItpFile {
 
     for (const line of molecules) {
       const [name, count] = line.split(TopFile.BLANK_REGEX);
-      molecules_count[name] = Number(count);
+      if (name in molecules_count)
+        molecules_count[name] += Number(count)
+      else
+        molecules_count[name] = Number(count);
 
       // register in the case that moleculetype does not exists
       if (!this.allow_system_moleculetype_only) {
-        this.molecules[name] = { 
-          // @ts-ignore
-          itp: null, 
-          count: Number(count),
-        };
+        if (name in this.molecules) {
+          this.molecules[name] = { 
+            // @ts-ignore
+            itp: null, 
+            count: Number(count) + this.molecules[name].count,
+          };
+        }
+        else {
+          this.molecules[name] = { 
+            // @ts-ignore
+            itp: null, 
+            count: Number(count),
+          };
+        }
       }
     }
 
