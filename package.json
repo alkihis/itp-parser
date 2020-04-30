@@ -1,7 +1,7 @@
 {
   "name": "itp-parser",
   "version": "1.4.3",
-  "description": "",
+  "description": "A basic ITP/TOP file parser",
   "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,5 +16,8 @@
   "repository": {
     "url": "https://github.com/alkihis/itp-parser",
     "type": "git"
+  },
+  "dependencies": {
+    "line-file-reader": "^1.0.0"
   }
 }

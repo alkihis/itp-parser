@@ -24,6 +24,10 @@ const { ItpFile, TopFile } = require('itp-parser');
 
 ## Usage
 
+Async file read accepts `string` (as file path), `NodeJS.ReadableStream` and `File` objects (of browser).
+
+Sync file read `string` (as file content).
+
 ### Read an ITP with none/single moleculetype field
 
 The following sections will talk about the `ItpFile` object.
@@ -38,9 +42,6 @@ import fs from 'fs';
 (async () => {
   // Single line instanciation
   const file = await ItpFile.read('/path/to/file');
-  // or, with classic constructor
-  const file = new ItpFile('/path/to/file');
-  await file.read(); // this is needed only with constructor
 
   console.log("This ITP hold moleculetype", file.name);
   // {file} is ready !
