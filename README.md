@@ -171,8 +171,8 @@ const top = TopFile.readFromString(
 
 ### List molecules of a system
 ```ts
-for (const [name, molecule] of top.molecules) {
-  console.log("Molecule", molecule.itp.name, ":", molecule.count, "times in the system");
+for (const molecule of top.molecules) {
+  console.log("Molecule", molecule.type, ":", molecule.count, "times in the system");
 }
 ```
 
@@ -194,7 +194,7 @@ For example, if your system contain `DPPC`:
 // If your file contains multiple moleculetype, they're all parsed in async mode
 await top.sideloadItp('lipids.itp');
 
-top.molecules.filter(e => e.name === "DPPC")[0].itp; // => ItpFile
+top.molecules.filter(e => e.type === "DPPC")[0].itp; // => ItpFile
 ```
 
 ### Get a molecule by name in a system
@@ -219,10 +219,10 @@ and the `MoleculeDefinition` is an object containing two fields:
 In order to access `ItpFile` instance, you must provide the ITP for the given `moleculetype` in the constructor.
 
 ```ts
-const molecules = top.molecules.filter(e => e[0] === "DPPC");
+const molecules = top.molecules.filter(e => e.type === "DPPC");
 
 if (molecules) {
-  console.log("Molecule DPPC is present", molecules.reduce((acc, cur) => acc + cur[1].count, 0), "times in the system");
+  console.log("Molecule DPPC is present", molecules.reduce((acc, cur) => acc + cur.count, 0), "times in the system");
 }
 ```
 
