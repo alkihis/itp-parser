@@ -55,7 +55,9 @@ export class TopFile extends ItpFile {
   }
 
   protected initFromItpArray(itps: ItpFile[]) {
+    // We need first for the headlines; they belongs to the system.
     const first = itps[0];
+    // We need the last one because [system] is always the *last* item to be defined.
     const last = itps[itps.length - 1];
 
     // Copy required data
