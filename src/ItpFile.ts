@@ -13,7 +13,7 @@ export class ItpFile {
   static HEADLINE_KEY = '_____begin_____';
   static BLANK_REGEX = /\s+/;
 
-  constructor(protected file?: AsyncFile) {}
+  constructor() {}
 
   /**
    * Read ITPs that contains multiple molecules.
@@ -46,7 +46,7 @@ export class ItpFile {
         // We switch molecule, creating new ITP if not in initial
         if (field === "moleculetype") {
           if (!initial) {
-            f = new ItpFile("");
+            f = new ItpFile;
             files.push(f);
           }
           else {

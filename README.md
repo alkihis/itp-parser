@@ -41,7 +41,12 @@ import fs from 'fs';
 // Read asynchrounously
 (async () => {
   // Single line instanciation
+  // With file path
   const file = await ItpFile.read('/path/to/file');
+  // With a readable stream
+  const file = await ItpFile.read(fs.createReadStream('/path/to/file'));
+  // With a File/Blob (inside a browser)
+  const file = await ItpFile.read(document.querySelector('input[type="file"]').files[0]);
 
   console.log("This ITP hold moleculetype", file.name);
   // {file} is ready !
@@ -150,8 +155,7 @@ In order to link `moleculetype` described in `molecules` field of TOP with ITP d
 
 ```ts
 // Asynchronously
-const top = new TopFile('/path/to/top', ['/path/to/itp1', '/path/to/itp2']);
-await top.read();
+const top = await TopFile.read('/path/to/top', ['/path/to/itp1', '/path/to/itp2']);
 
 // Synchronously
 const top = TopFile.readFromString(

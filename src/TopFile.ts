@@ -8,47 +8,6 @@ export type MoleculeDefinition = { itp: ItpFile, count: number };
 export class TopFile extends ItpFile {
   public readonly molecules: [string, MoleculeDefinition][] = [];
 
-  constructor(
-    protected top_file: AsyncFile,
-    protected itp_files: AsyncFile[] = [],
-    public allow_system_moleculetype_only = true,
-  ) {
-    super(top_file);
-  }
-
-  async read() {
-    const file = this.top_file;
-
-    // Read the TOP file as ITP file
-    const rl = LineFileReader.isFile(file) ? 
-      new LineFileReader(file) : 
-      readline.createInterface({
-        input: typeof file === 'string' ? fs.createReadStream(file) : file,
-        crlfDelay: Infinity,
-      });
-
-    let field = ItpFile.HEADLINE_KEY;
-
-    for await (const line of rl) {
-      const new_f = this.readLine(line, field);
-      if (new_f) {
-        field = new_f;
-      }
-    }
-    // End read ITP
-
-    TopFile.initItpData(this);
-
-    for (const file of this.itp_files) {
-      // Multiple molecules per ITP allowed
-      const itps = await ItpFile.readMany(file);
-      
-      for (const itp of itps) {
-        TopFile.registerItp(this, itp);
-      }
-    }
-  }
-
   async sideloadItp(itp: AsyncFile) {
     const itps_instance = await ItpFile.readMany(itp);
 
@@ -86,8 +45,47 @@ export class TopFile extends ItpFile {
     }
   }
 
+
+  /* STATIC CONSTRUCTORS */
+
+  static async read(top_file: AsyncFile, itp_files: AsyncFile[] = []) {
+    const instance = new TopFile;
+    const file = top_file;
+
+    // Read the TOP file as ITP file
+    const rl = LineFileReader.isFile(file) ? 
+      new LineFileReader(file) : 
+      readline.createInterface({
+        input: typeof file === 'string' ? fs.createReadStream(file) : file,
+        crlfDelay: Infinity,
+      });
+
+    let field = ItpFile.HEADLINE_KEY;
+
+    for await (const line of rl) {
+      const new_f = instance.readLine(line, field);
+      if (new_f) {
+        field = new_f;
+      }
+    }
+    // End read ITP
+
+    this.initItpData(instance);
+
+    for (const file of itp_files) {
+      // Multiple molecules per ITP allowed
+      const itps = await ItpFile.readMany(file);
+      
+      for (const itp of itps) {
+        this.registerItp(instance, itp);
+      }
+    }
+
+    return instance;
+  }
+
   static readFromString(data: string, itp_data: string[] = []) {
-    const f = new TopFile("");
+    const f = new TopFile;
     let field = ItpFile.HEADLINE_KEY;
 
     for (const line of data.split('\n')) {
