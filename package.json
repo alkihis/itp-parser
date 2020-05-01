@@ -1,6 +1,6 @@
 {
   "name": "itp-parser",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A basic ITP/TOP file parser",
   "main": "dist/index.js",
   "scripts": {
