@@ -22,48 +22,67 @@ export class TopFile extends ItpFile {
     super();
   }
 
-  async sideloadItp(itp: AsyncFile) {
-    const itps_instance = await ItpFile.readMany(itp);
+  /* PROTECTED INIT METHODS */
 
-    for (const itp_instance of itps_instance)
-      TopFile.registerItp(this, itp_instance);
-  }
-
-  sideloadItpFromString(itp: string) {
-    const itps = ItpFile.readManyFromString(itp);
-
-    for (const itp of itps) {
-      TopFile.registerItp(this, itp);
-    }
-  }
-
-  protected static initItpData(instance: TopFile) {
-    const molecules = instance.getField('molecules');
+  protected initItpData() {
+    const molecules = this.getField('molecules');
 
     for (const line of molecules) {
       const [name, count] = line.split(TopFile.BLANK_REGEX);
 
       // register in the case that moleculetype does not exists
-      instance.molecules.push(
+      this.molecules.push(
         // @ts-ignore
         { itp: null, count: Number(count), type: name }
       );
     }
 
     // Test if ITPs are stashed (if so, register them)
-    for (const itp of [...instance.registred_itps]) {
-      this.registerItp(instance, itp);
+    for (const itp of [...this.registred_itps]) {
+      this.registerItp(itp);
     }
 
-    return instance;
+    return this;
   }
 
-  protected static registerItp(instance: TopFile, itp: ItpFile) {
+  protected registerItp(itp: ItpFile) {
     const name = itp.name;
-    instance.registred_itps.add(itp);
+    this.registred_itps.add(itp);
     
-    for (const mol of instance.molecules.filter(e => e.type === name)) {
+    for (const mol of this.molecules.filter(e => e.type === name)) {
       mol.itp = itp; 
+    }
+  }
+
+  protected initFromItpArray(itps: ItpFile[]) {
+    const first = itps[0];
+    const last = itps[itps.length - 1];
+
+    // Copy required data
+    this.setField(ItpFile.HEADLINE_KEY, first.headlines);
+    this.setField('system', last.getField('system'));
+    this.setField('molecules', last.getField('molecules'));
+
+    last.removeField('system');
+    last.removeField('molecules');
+    first.setField(ItpFile.HEADLINE_KEY, []);
+
+    if (first !== last) {
+      // there is multiple items (so every item have a moleculetype!)
+      // 1- remove system and molecules from last (done before)
+      // 2- Remove headlines of first (done before)
+      // 3- Register every ITP in the stash stack
+      for (const itp of itps) {
+        this.registred_itps.add(itp);
+      }
+    }
+    else {
+      // One ITP. system, molecules and headlines are cleared.
+
+      // If the ITP holds molecule data, register it in the stash stack.
+      if (first.hasField('moleculetype')) {
+        this.registred_itps.add(first);
+      }
     }
   }
 
@@ -77,16 +96,16 @@ export class TopFile extends ItpFile {
     const instance = new TopFile;
 
     // This reads the top file
-    this.initInstanceFromItpArray(instance, await ItpFile.readMany(top_file));
+    instance.initFromItpArray(await ItpFile.readMany(top_file));
 
-    this.initItpData(instance);
+    instance.initItpData();
 
     for (const file of itp_files) {
       // Multiple molecules per ITP allowed
       const itps = await ItpFile.readMany(file);
       
       for (const itp of itps) {
-        this.registerItp(instance, itp);
+        instance.registerItp(itp);
       }
     }
 
@@ -100,10 +119,10 @@ export class TopFile extends ItpFile {
     const f = new TopFile;
 
     // this reads the ITP data
-    this.initInstanceFromItpArray(f, ItpFile.readManyFromString(data));
+    f.initFromItpArray(ItpFile.readManyFromString(data));
 
     // This parse molecules
-    this.initItpData(f);
+    f.initItpData();
 
     // This parsed asked ITPs
     for (const file of itp_data) {
@@ -111,44 +130,33 @@ export class TopFile extends ItpFile {
       const itps = ItpFile.readManyFromString(file);
 
       for (const itp of itps) {
-        this.registerItp(f, itp);
+        f.registerItp(itp);
       }
     }
 
     return f;
   }
 
-  protected static initInstanceFromItpArray(instance: TopFile, itps: ItpFile[]) {
-    const first = itps[0];
-    const last = itps[itps.length - 1];
 
-    // Copy required data
-    instance.setField(ItpFile.HEADLINE_KEY, first.headlines);
-    instance.setField('system', last.getField('system'));
-    instance.setField('molecules', last.getField('molecules'));
+  /* ITP SIDELOADING */
 
-    last.removeField('system');
-    last.removeField('molecules');
-    first.setField(ItpFile.HEADLINE_KEY, []);
+  async sideloadItp(itp: AsyncFile) {
+    const itps_instance = await ItpFile.readMany(itp);
 
-    if (first !== last) {
-      // there is multiple items (so every item have a moleculetype!)
-      // 1- remove system and molecules from last (done before)
-      // 2- Remove headlines of first (done before)
-      // 3- Register every ITP in the stash stack
-      for (const itp of itps) {
-        instance.registred_itps.add(itp);
-      }
-    }
-    else {
-      // One ITP. system, molecules and headlines are cleared.
+    for (const itp_instance of itps_instance)
+      this.registerItp(itp_instance);
+  }
 
-      // If the ITP holds molecule data, register it in the stash stack.
-      if (first.hasField('moleculetype')) {
-        instance.registred_itps.add(first);
-      }
+  sideloadItpFromString(itp: string) {
+    const itps = ItpFile.readManyFromString(itp);
+
+    for (const itp of itps) {
+      this.registerItp(itp);
     }
   }
+
+
+  /* FIELD GETTERS */
  
   /**
    * Return all `MoleculeDefinition` associated to this `moleculetype`.
