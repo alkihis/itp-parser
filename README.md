@@ -209,7 +209,15 @@ molecule_0  1
 is a valid format for GROMACS. 
 For this reason, a molecule type can be present multiple time in the `top.molecules` array.
 
-`top.molecules` is an array of tuples `[string, MoleculeDefinition]`.
+`top.molecules` is an array of `MoleculeDefinition`.
+
+```ts
+interface MoleculeDefinition {
+  itp: ItpFile, 
+  count: number, 
+  type: string 
+}
+```
 
 The first `string` is the molecule type, 
 and the `MoleculeDefinition` is an object containing two fields:
