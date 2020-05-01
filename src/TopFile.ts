@@ -1,12 +1,26 @@
-import readline from 'readline';
-import fs from 'fs';
-import LineFileReader from 'line-file-reader';
 import { ItpFile, AsyncFile } from "./ItpFile";
 
-export type MoleculeDefinition = { itp: ItpFile, count: number };
+/**
+ * A line of the `molecules` field in a TOP file.
+ * Contain specified count in this line, and a reference to molecule ITP if any.
+ */
+export type MoleculeDefinition = { itp: ItpFile, count: number, type: string };
 
+/**
+ * Describe a system through a TOP file.
+ * 
+ * The TOP file **must** not contain any molecule definition, take care of splitting them inside ITPs.
+ */
 export class TopFile extends ItpFile {
-  public readonly molecules: [string, MoleculeDefinition][] = [];
+  /** List (in the order of the `molecules` field) of the molecules in this system. */
+  public readonly molecules: MoleculeDefinition[] = [];
+
+  /** Contain all read ITPs splitted by `moleculetype`, even those present in given TOP file. */
+  public readonly registred_itps: Set<ItpFile> = new Set;
+
+  protected constructor() {
+    super();
+  }
 
   async sideloadItp(itp: AsyncFile) {
     const itps_instance = await ItpFile.readMany(itp);
@@ -16,8 +30,11 @@ export class TopFile extends ItpFile {
   }
 
   sideloadItpFromString(itp: string) {
-    const itp_instance = ItpFile.readFromString(itp);
-    TopFile.registerItp(this, itp_instance);
+    const itps = ItpFile.readManyFromString(itp);
+
+    for (const itp of itps) {
+      TopFile.registerItp(this, itp);
+    }
   }
 
   protected static initItpData(instance: TopFile) {
@@ -27,11 +44,15 @@ export class TopFile extends ItpFile {
       const [name, count] = line.split(TopFile.BLANK_REGEX);
 
       // register in the case that moleculetype does not exists
-      instance.molecules.push([
-        name, 
+      instance.molecules.push(
         // @ts-ignore
-        { itp: null, count: Number(count) }
-      ]);
+        { itp: null, count: Number(count), type: name }
+      );
+    }
+
+    // Test if ITPs are stashed (if so, register them)
+    for (const itp of [...instance.registred_itps]) {
+      this.registerItp(instance, itp);
     }
 
     return instance;
@@ -39,36 +60,24 @@ export class TopFile extends ItpFile {
 
   protected static registerItp(instance: TopFile, itp: ItpFile) {
     const name = itp.name;
+    instance.registred_itps.add(itp);
     
-    for (const mol of instance.molecules.filter(e => e[0] === name)) {
-      mol[1].itp = itp; 
+    for (const mol of instance.molecules.filter(e => e.type === name)) {
+      mol.itp = itp; 
     }
   }
 
 
   /* STATIC CONSTRUCTORS */
 
+  /**
+   * Asynchronously read TOP/ITP files by path/readable stream/`File`/`Blob`.
+   */
   static async read(top_file: AsyncFile, itp_files: AsyncFile[] = []) {
     const instance = new TopFile;
-    const file = top_file;
 
-    // Read the TOP file as ITP file
-    const rl = LineFileReader.isFile(file) ? 
-      new LineFileReader(file) : 
-      readline.createInterface({
-        input: typeof file === 'string' ? fs.createReadStream(file) : file,
-        crlfDelay: Infinity,
-      });
-
-    let field = ItpFile.HEADLINE_KEY;
-
-    for await (const line of rl) {
-      const new_f = instance.readLine(line, field);
-      if (new_f) {
-        field = new_f;
-      }
-    }
-    // End read ITP
+    // This reads the top file
+    this.initInstanceFromItpArray(instance, await ItpFile.readMany(top_file));
 
     this.initItpData(instance);
 
@@ -84,38 +93,85 @@ export class TopFile extends ItpFile {
     return instance;
   }
 
+  /**
+   * Synchronously read TOP/ITP data with a plain string.
+   */
   static readFromString(data: string, itp_data: string[] = []) {
     const f = new TopFile;
-    let field = ItpFile.HEADLINE_KEY;
 
-    for (const line of data.split('\n')) {
-      const new_f = f.readLine(line, field);
-      if (new_f) {
-        field = new_f;
-      }
-    }
+    // this reads the ITP data
+    this.initInstanceFromItpArray(f, ItpFile.readManyFromString(data));
 
+    // This parse molecules
     this.initItpData(f);
 
+    // This parsed asked ITPs
     for (const file of itp_data) {
       // Multiple molecules per ITP allowed
-      const itp = ItpFile.readFromString(file);
-      this.registerItp(f, itp);
+      const itps = ItpFile.readManyFromString(file);
+
+      for (const itp of itps) {
+        this.registerItp(f, itp);
+      }
     }
 
     return f;
   }
 
+  protected static initInstanceFromItpArray(instance: TopFile, itps: ItpFile[]) {
+    const first = itps[0];
+    const last = itps[itps.length - 1];
+
+    // Copy required data
+    instance.setField(ItpFile.HEADLINE_KEY, first.headlines);
+    instance.setField('system', last.getField('system'));
+    instance.setField('molecules', last.getField('molecules'));
+
+    last.removeField('system');
+    last.removeField('molecules');
+    first.setField(ItpFile.HEADLINE_KEY, []);
+
+    if (first !== last) {
+      // there is multiple items (so every item have a moleculetype!)
+      // 1- remove system and molecules from last (done before)
+      // 2- Remove headlines of first (done before)
+      // 3- Register every ITP in the stash stack
+      for (const itp of itps) {
+        instance.registred_itps.add(itp);
+      }
+    }
+    else {
+      // One ITP. system, molecules and headlines are cleared.
+
+      // If the ITP holds molecule data, register it in the stash stack.
+      if (first.hasField('moleculetype')) {
+        instance.registred_itps.add(first);
+      }
+    }
+  }
+ 
+  /**
+   * Return all `MoleculeDefinition` associated to this `moleculetype`.
+   */
   getMolecule(name: string) {
-    return this.molecules.filter(e => e[0] === name).map(e => e[1]);
+    return this.molecules.filter(e => e.type === name);
   }
 
-  get molecule_list() {
-    return this.molecules.map(e => e[1]);
-  }
-
+  /** Usually, contain the name of the system. Unparsed version of `.name` */
   get system() {
     return this.getField('system');
+  }
+
+  /** Name of the system. */
+  get name() {
+    return this.system.join('').trim();
+  }
+
+  /**
+   * This field is never valid for a TOP file.
+   */
+  get name_and_count() : never {
+    throw new Error("System does not contains moleculetype field. Please see ITP files.");
   }
 
   /**
@@ -128,7 +184,7 @@ export class TopFile extends ItpFile {
       includes.add(include);
     }
 
-    for (const [, molecule] of this.molecules) {
+    for (const molecule of this.molecules) {
       for (const include of molecule.itp.includes) {
         includes.add(include);
       }
@@ -142,8 +198,9 @@ export class TopFile extends ItpFile {
    */
   dispose() {
     super.dispose();
+    this.registred_itps.clear();
     
-    for (const [, molecule] of this.molecules) {
+    for (const molecule of this.molecules) {
       molecule.itp.dispose();
     }
   }
