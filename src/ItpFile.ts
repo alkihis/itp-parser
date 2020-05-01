@@ -160,9 +160,13 @@ export class ItpFile {
   /**
    * Get lines associated to a field.
    */
-  getField(name: string) {
-    if (name in this.data)
+  getField(name: string, without_comments = false) {
+    if (name in this.data) {
+      if (without_comments) {
+        return this.data[name].filter(e => !e.startsWith(';'));
+      }
       return this.data[name];
+    }
     return [];
   }
 
@@ -205,7 +209,7 @@ export class ItpFile {
    * Name and molecule count specified in `moleculetype` field.
    */
   get name_and_count() {
-    const f = this.getField('moleculetype');
+    const f = this.getField('moleculetype', true);
 
     if (!f.length) {
       return ["", 0];

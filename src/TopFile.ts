@@ -64,6 +64,8 @@ export class TopFile extends ItpFile {
     this.setField(ItpFile.HEADLINE_KEY, first.headlines);
     this.setField('system', last.getField('system'));
     this.setField('molecules', last.getField('molecules'));
+    this._includes.push(...first.includes);
+    first.includes.splice(0, first.includes.length);
 
     last.removeField('system');
     last.removeField('molecules');

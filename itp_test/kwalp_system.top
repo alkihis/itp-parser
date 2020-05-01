@@ -1,0 +1,14 @@
+#include "kwalp_molecule_0.itp"
+#include "single_DPPC.itp"
+#include "single_DIPC.itp"
+#define GO_VIRT
+
+[ system ]
+This is the KWALP test system
+
+[ molecules ]
+molecule_0    1
+DPPC        340
+molecule_0    2
+DIPC        100
+DPPC          2
