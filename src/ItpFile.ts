@@ -193,9 +193,25 @@ export class ItpFile {
    * Otherwise, create the field with specified data.
    */
   appendField(name: string, append_data: string[]) {
-    if (name in this.data)
+    if (name in this.data) {
       this.data[name].push(...append_data);
-    this.data[name] = append_data;
+    }
+    else {
+      this.data[name] = append_data;
+    }
+  }
+
+  /**
+   * If field {name} exists, append {line} to registred lines.
+   * Otherwise, create the field with specified data.
+   */
+  appendFieldLine(name: string, line: string) {
+    if (name in this.data) {
+      this.data[name].push(line);
+    }
+    else {
+      this.data[name] = [line];
+    }
   }
 
   /**
@@ -206,9 +222,9 @@ export class ItpFile {
   }
 
   /**
-   * Name and molecule count specified in `moleculetype` field.
+   * Name and molecule nrexcl specified in `moleculetype` field.
    */
-  get name_and_count() {
+  get name_and_nrexcl() : [string, number] {
     const f = this.getField('moleculetype', true);
 
     if (!f.length) {
@@ -222,17 +238,24 @@ export class ItpFile {
   }
 
   /**
-   * Name specified in `moleculetype` field.
+   * Excluded non-bonded interactions between atoms that are no further than {nrexcl} bonds away. Defined in `moleculetype`.
    */
-  get name() {
-    return this.name_and_count[0];
+  get nrexcl() {
+    return this.name_and_nrexcl[1];
   }
 
   /**
-   * Count specified in `moleculetype` field.
+   * Name specified in `moleculetype` field.
    */
-  get molecule_count() {
-    return this.name_and_count[1];
+  get name() {
+    return this.name_and_nrexcl[0];
+  }
+  
+  /**
+   * Alias for `.name`. Name/type specified in `moleculetype` field.
+   */
+  get type() {
+    return this.name;
   }
 
   /**
@@ -279,7 +302,7 @@ export class ItpFile {
     setTimeout(async () => {
       for (const field in this.data) {
         if (field !== ItpFile.HEADLINE_KEY)
-          stm.push(`[${field}]\n`);
+          stm.push(`\n[${field}]\n`);
   
         for (const line of this.data[field]) {
           stm.push(line + '\n');
@@ -301,7 +324,7 @@ export class ItpFile {
     let str = "";
     for (const field in this.data) {
       if (field !== ItpFile.HEADLINE_KEY)
-        str += `[${field}]\n`;
+        str += `\n[${field}]\n`;
 
       for (const line of this.data[field]) {
         str += line + '\n';

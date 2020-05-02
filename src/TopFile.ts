@@ -9,7 +9,9 @@ export type MoleculeDefinition = { itp: ItpFile, count: number, type: string };
 /**
  * Describe a system through a TOP file.
  * 
- * The TOP file **must** not contain any molecule definition, take care of splitting them inside ITPs.
+ * The TOP file can contain any molecule definition, they will be splitted in sub `ItpFile` instance.
+ * 
+ * **If TOP file contain molecule definition, the `system` and `molecules` field must be at the end of the file.**
  */
 export class TopFile extends ItpFile {
   /** List (in the order of the `molecules` field) of the molecules in this system. */

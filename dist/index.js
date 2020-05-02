@@ -9,4 +9,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ItpFile_1 = __importDefault(require("./ItpFile"));
 __export(require("./ItpFile"));
 __export(require("./TopFile"));
+__export(require("./AdvancedTopFile"));
 exports.default = ItpFile_1.default;

@@ -1,7 +1,7 @@
+#define GO_VIRT
 #include "kwalp_molecule_0.itp"
 #include "single_DPPC.itp"
 #include "single_DIPC.itp"
-#define GO_VIRT
 
 [ system ]
 This is the KWALP test system

@@ -1,4 +1,4 @@
-import { TopFile, ItpFile } from '.';
+import { TopFile, ItpFile, AdvancedTopFile } from '.';
 import path from 'path';
 import assert from 'assert';
 
@@ -31,7 +31,7 @@ export let items: any = {};
   assert.strictEqual(dppc_arr.length, 1, "Hold a single ITP.");
   
   const dppc = dppc_arr[0];
-  assert.deepStrictEqual(dppc.name_and_count, ["DPPC", 1]);
+  assert.deepStrictEqual(dppc.name_and_nrexcl, ["DPPC", 1]);
 
   items.dppc = dppc;
 
@@ -66,5 +66,19 @@ export let items: any = {};
   assert.strictEqual(kwalp_included.registred_itps.size, 3);
 
   items.kwalp_included = kwalp_included;
+
+  const kwalp_full = new AdvancedTopFile(true);
+  await kwalp_full.read({ path: FILES + '/kwalp_system.full.top' }, path => ({ path: FILES + '/' + path }));
+
+  items.kwalp_full = kwalp_full;
+
+  const as_str = kwalp_full.toString();
+  for (let i = 1; i < 5; i++) {
+    assert.strictEqual(as_str.includes("SHOULD" + i), true);
+  }
+
+  for (let i = 1; i < 10; i++) {
+    assert.strictEqual(as_str.includes("NOT" + i), false);
+  }
 })();
 

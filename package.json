@@ -18,6 +18,6 @@
     "type": "git"
   },
   "dependencies": {
-    "line-file-reader": "^1.1.0"
+    "line-file-reader": "^1.1.2"
   }
 }
