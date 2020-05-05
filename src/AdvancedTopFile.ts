@@ -6,6 +6,13 @@ import { MoleculeDefinition } from './TopFile';
 import stream from 'stream';
 import path from 'path';
 
+enum ConditionalState {
+  NotReadable = -1,
+  Unvalidated,
+  Validated,
+  EnteredElse,
+};
+
 export interface ReadEntry {
   path: string;
   stream: NodeJS.ReadableStream; 
@@ -92,7 +99,7 @@ export class AdvancedTopFile extends ItpFile {
     }
   }
 
-  protected async readLinesFrom(reader: AsyncLineReader, filename: string, if_stack: (2 | 1 | 0 | null)[] = []) { 
+  protected async readLinesFrom(reader: AsyncLineReader, filename: string, if_stack: ConditionalState[] = []) { 
     let can_read = true;
     let line_no = 0;
     let start_level = if_stack.length;
@@ -192,7 +199,7 @@ export class AdvancedTopFile extends ItpFile {
 
   protected handlePreprocessors(
     line: string, 
-    if_stack: (0 | 1 | 2 | null)[], 
+    if_stack: ConditionalState[], 
     can_read: boolean, 
     line_no: number, 
     filename: string
@@ -215,30 +222,30 @@ export class AdvancedTopFile extends ItpFile {
     else if (instruction === "ifdef") {
       if (can_read) {
         if (content in this.defines) {
-          if_stack.push(1);
+          if_stack.push(ConditionalState.Validated);
         }
         else {
-          if_stack.push(0);
+          if_stack.push(ConditionalState.Unvalidated);
           can_read = false;
         }
       }
       else {
-        if_stack.push(null);
+        if_stack.push(ConditionalState.NotReadable);
       }
       return can_read;
     }
     else if (instruction === "ifndef") {
       if (can_read) {
         if (content in this.defines) {
-          if_stack.push(0);
+          if_stack.push(ConditionalState.Unvalidated);
           can_read = false;
         }
         else {
-          if_stack.push(1);
+          if_stack.push(ConditionalState.Validated);
         }
       }
       else {
-        if_stack.push(null);
+        if_stack.push(ConditionalState.NotReadable);
       }
       return can_read;
     }
@@ -249,23 +256,23 @@ export class AdvancedTopFile extends ItpFile {
 
       const last_el = if_stack.pop();
 
-      if (last_el === 0) {
+      if (last_el === ConditionalState.Unvalidated) {
         // This was an unvalidated if, now we can read
         can_read = true;
-        if_stack.push(2);
+        if_stack.push(ConditionalState.EnteredElse);
       }
-      else if (last_el === 1) {
+      else if (last_el === ConditionalState.Validated) {
         // This was a validated if, from now we can't read
         can_read = false;
-        if_stack.push(2);
+        if_stack.push(ConditionalState.EnteredElse);
       }
-      else if (last_el === 2) {
+      else if (last_el === ConditionalState.EnteredElse) {
         // This should not happen.
         throw new Error(`Unexpected else statement on line ${line_no} in file ${filename}.`);
       }
       else {
-        // We can't read. Do nothing.
-        if_stack.push(null);
+        // We can't read. Do nothing. Repush the not readable state to unpop it when endif.
+        if_stack.push(ConditionalState.NotReadable);
       }
       return can_read;
     }
@@ -276,7 +283,7 @@ export class AdvancedTopFile extends ItpFile {
 
       const last_el = if_stack.pop();
 
-      if (typeof last_el === 'number') {
+      if (last_el !== ConditionalState.NotReadable) {
         // This was a read-if, now we can read normally
         can_read = true;
       }

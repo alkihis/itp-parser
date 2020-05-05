@@ -80,5 +80,7 @@ export let items: any = {};
   for (let i = 1; i < 10; i++) {
     assert.strictEqual(as_str.includes("NOT" + i), false);
   }
+
+  items.adv = AdvancedTopFile;
 })();
 
