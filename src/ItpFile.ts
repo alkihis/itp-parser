@@ -13,7 +13,7 @@ export class ItpFile {
   static HEADLINE_KEY = '_____begin_____';
   static BLANK_REGEX = /\s+/;
 
-  protected constructor() { }
+  constructor() { }
 
   /**
    * Read ITPs that can contain multiple `moleculetype` fields.
@@ -171,6 +171,24 @@ export class ItpFile {
   }
 
   /**
+   * Get lines associated to a field and a subfield  
+  **/
+  getSubfield(field_name:string, subfield: string): string[] { 
+
+    let inSubfield = false; 
+    let toReturn : string [] = []
+    if (field_name in this.data){
+      this.data[field_name].forEach(row => {
+        if (row === "; " + subfield) inSubfield = true; 
+        else if (row.startsWith(";")) inSubfield = false; 
+        if(inSubfield) toReturn.push(row); 
+      })
+    }
+
+    return toReturn
+  } 
+
+  /**
    * Create/Replace field {name} with lines specified in {data}.
    */
   setField(name: string, data: string[]) {
@@ -182,6 +200,22 @@ export class ItpFile {
    */
   removeField(name: string) {
     delete this.data[name];
+  }
+
+  removeSubfield(fieldName:string, subfield: string){
+    let updated_field: string[] = []
+    const field = this.data[fieldName]; 
+
+    let inSubfield = false; 
+
+    field.forEach(row => {
+      if(row === "; " + subfield) inSubfield = true;  
+      else if (row.startsWith(";")) inSubfield = false; 
+      if(!inSubfield) updated_field.push(row)
+    })
+
+    this.data[fieldName] = updated_field; 
+
   }
 
   hasField(name: string) {
@@ -200,7 +234,6 @@ export class ItpFile {
       this.data[name] = append_data;
     }
   }
-
   /**
    * If field {name} exists, append {line} to registred lines.
    * Otherwise, create the field with specified data.
@@ -212,6 +245,12 @@ export class ItpFile {
     else {
       this.data[name] = [line];
     }
+  }
+
+  /** Add include statement at the end of the given field */
+  appendInclude(path: string, whichField: string){
+    this._includes.push(path); 
+    this.appendFieldLine(whichField, '#include "' + path + '"')
   }
 
   /**
