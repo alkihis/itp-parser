@@ -173,7 +173,7 @@ export class ItpFile {
   /**
    * Get lines associated to a field and a subfield  
   **/
-  getSubfield(field_name:string, subfield: string): string[] { 
+  getSubfield(field_name:string, subfield: string, withHeader: boolean = true): string[] { 
 
     let inSubfield = false; 
     let toReturn : string [] = []
@@ -185,8 +185,15 @@ export class ItpFile {
       })
     }
 
+    if (!withHeader && toReturn[0].startsWith(";")) toReturn.shift()
+
     return toReturn
   } 
+
+  /*Get subfields header name in a field*/
+  getSubfieldNames(field_name:string): string[] {
+    return this.getField(field_name).filter(line => line.startsWith(";"))
+  }
 
   /**
    * Create/Replace field {name} with lines specified in {data}.
