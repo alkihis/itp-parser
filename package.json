@@ -1,6 +1,6 @@
 {
-  "name": "itp-parser",
-  "version": "2.1.2",
+  "name": "itp-parser-forked",
+  "version": "2.2.1",
   "description": "A basic ITP/TOP file parser",
   "main": "dist/index.js",
   "scripts": {
@@ -12,9 +12,9 @@
   "devDependencies": {
     "@types/node": "^13.13.5"
   },
-  "homepage": "https://github.com/alkihis/itp-parser",
+  "homepage": "https://github.com/MMSB-MOBI/itp-parser",
   "repository": {
-    "url": "https://github.com/alkihis/itp-parser",
+    "url": "https://github.com/MMSB-MOBI/itp-parser",
     "type": "git"
   },
   "dependencies": {
